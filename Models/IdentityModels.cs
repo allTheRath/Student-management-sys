@@ -388,6 +388,18 @@ namespace Student_management_.Models
                 Course course = db.Courses.FirstOrDefault(x => x.Name == courseName);
                 var length = db.Courses.Count();
                 db.Courses.Remove(course);
+                var applicationUserCourses = db.ApplicationUserCourses.Where(x => x.CourseId == course.Id).ToList();
+                foreach (var i in applicationUserCourses)
+                {
+                    var users = db.Users.Where(x => x.Courses.Contains(i)).ToList();
+                    users.ForEach(user =>
+                    {
+                        user.Courses.Remove(i);
+                    });
+                    // removing usercourse from user.
+                    db.ApplicationUserCourses.Remove(i);
+                }
+
                 db.SaveChanges();
                 if (length + 1 != db.Courses.Count())
                 {
@@ -404,7 +416,7 @@ namespace Student_management_.Models
 
         }
 
-        public bool AddStudentToACourse(string userId, string studentId, string courseName)
+        public bool AddStudentToACourse(string userId, string studentEmail, string courseName)
         {
             bool result = false;
             try
@@ -416,9 +428,9 @@ namespace Student_management_.Models
                     throw new Exception();
                 }
 
-                var student = db.Users.Find(studentId);
+                var student = db.Users.FirstOrDefault(x => x.Email == studentEmail);
                 var course = db.Courses.FirstOrDefault(x => x.Name == courseName);
-                if(student == null || course == null)
+                if (student == null || course == null)
                 {
                     throw new Exception();
                 }
@@ -434,7 +446,7 @@ namespace Student_management_.Models
                 course.ApplicationUsers.Add(applicationUserCourse);
                 db.SaveChanges();
 
-                if(length + 1 == db.ApplicationUserCourses.Count())
+                if (length + 1 == db.ApplicationUserCourses.Count())
                 {
                     result = true;
                 }
@@ -448,36 +460,215 @@ namespace Student_management_.Models
 
         }
 
-        ////public ActionResult AddStudentsTOCourse()
-        ////{
-        ////    return View();
-        ////}
+        public bool AddStudentsToCourse(string userId, List<string> studentEmails, string courseName)
+        {
+            var result = false;
+            try
+            {
+                var log = UpdateLog(userId, DatabaseOperation.add, TableName.Course, courseName);
+                if (!log)
+                {
+                    throw new Exception();
+                }
 
-        //public ActionResult AddInstructorToCourse()
-        //{
-        //    return View();
-        //}
+                var course = db.Courses.FirstOrDefault(x => x.Name == courseName);
+                if (course == null || course.Capacity < studentEmails.Count())
+                {
+                    throw new Exception();
+                }
 
-        //public ActionResult RemoveStudentFromCourse()
-        //{
-        //    return View();
-        //}
+                var length = db.ApplicationUserCourses.Count();
+                var students = db.Users.Where(x => studentEmails.Contains(x.Email)).ToList();
 
-        //public ActionResult RemoveInstructorFromCourse()
-        //{
-        //    return View();
-        //}
+                foreach (var student in students)
+                {
+                    ApplicationUserCourse applicationUserCourse = new ApplicationUserCourse();
+                    applicationUserCourse.ApplicationUserId = student.Id;
+                    applicationUserCourse.CourseId = course.Id;
+                    applicationUserCourse.Course = course;
+                    applicationUserCourse.ApplicationUser = student;
+                    applicationUserCourse.DateJoined = DateTime.Now;
+                    course.ApplicationUsers.Add(applicationUserCourse);
+                }
+                db.SaveChanges();
+                if (length + studentEmails.Count() != db.ApplicationUserCourses.Count())
+                {
+                    throw new Exception();
+                }
+                // if there is an error in updated database then i should delete any updated data.
+                result = true;
+            }
+            catch (Exception)
+            {
+                result = false;
+            }
 
-        //public ActionResult MaxCapaCityCourses()
-        //{
-        //    return View();
-        //}
 
-        //public ActionResult AllStudentsOfACourse()
-        //{
+            return result;
+        }
 
-        //    return View();
-        //}
+        public bool AddInstructorToCourse(string userId, string courseName, string instructorId)
+        {
+            // course can contain multiple instructors.
+            var result = false;
+            try
+            {
+                var log = UpdateLog(userId, DatabaseOperation.add, TableName.Course, courseName);
+                if (!log)
+                {
+                    throw new Exception();
+                }
+
+                var instructor = db.Users.Find(instructorId);
+                Course course = db.Courses.FirstOrDefault(x => x.Name == courseName);
+                if (instructor == null || course == null || instructor.Type == null)
+                {
+                    throw new Exception();
+                }
+
+                ApplicationUserCourse applicationUserCourse = new ApplicationUserCourse();
+                applicationUserCourse.ApplicationUserId = instructor.Id;
+                applicationUserCourse.ApplicationUser = instructor;
+                applicationUserCourse.CourseId = course.Id;
+                applicationUserCourse.Course = course;
+                applicationUserCourse.DateJoined = DateTime.Now;
+                course.ApplicationUsers.Add(applicationUserCourse);
+                db.SaveChanges();
+                result = true;
+                return result;
+            }
+            catch (Exception)
+            {
+                return result;
+            }
+
+        }
+
+        public bool RemoveStudentFromCourse(string userId, string courseName, string studentEmail)
+        {
+            var result = false;
+            try
+            {
+                var log = UpdateLog(userId, DatabaseOperation.edit, TableName.Course, courseName);
+                if (!log)
+                {
+                    throw new Exception();
+                }
+
+                var student = db.Users.FirstOrDefault(x => x.Email == studentEmail);
+                Course course = db.Courses.FirstOrDefault(x => x.Name == courseName);
+
+                if (student == null || course == null)
+                {
+                    throw new Exception();
+                }
+
+                ApplicationUserCourse applicationUserCourse = db.ApplicationUserCourses.FirstOrDefault(x => x.CourseId == course.Id && x.ApplicationUserId == student.Id);
+                db.ApplicationUserCourses.Remove(applicationUserCourse);
+                course.ApplicationUsers.Remove(applicationUserCourse);
+                var users = db.Users.Where(x => x.Courses.Contains(applicationUserCourse)).ToList();
+                users.ForEach(user =>
+                {
+                    user.Courses.Remove(applicationUserCourse);
+                });
+
+                result = true;
+            }
+            catch (Exception)
+            {
+
+            }
+
+            return result;
+        }
+
+        public bool RemoveInstructorFromCourse(string userId, string instructorEmail, string courseName)
+        {
+            var result = false;
+            try
+            {
+                var log = UpdateLog(userId, DatabaseOperation.edit, TableName.Course, courseName);
+                if (!log)
+                {
+                    throw new Exception();
+                }
+
+                var instructor = db.Users.FirstOrDefault(x => x.Email == instructorEmail);
+                Course course = db.Courses.FirstOrDefault(x => x.Name == courseName);
+                ApplicationUserCourse applicationUserCourse = db.ApplicationUserCourses.FirstOrDefault(x => x.ApplicationUserId == instructor.Id);
+                db.ApplicationUserCourses.Remove(applicationUserCourse);
+                course.ApplicationUsers.Remove(applicationUserCourse);
+                instructor.Courses.Remove(applicationUserCourse);
+                db.SaveChanges();
+                result = true;
+                return result;
+            }
+            catch (Exception)
+            {
+                return result;
+            }
+
+        }
+
+        public ICollection<Course> MaxCapaCityCourses(string userId)
+        {
+            try
+            {
+                var log = UpdateLog(userId, DatabaseOperation.retrive, TableName.Course, "All-Capacity");
+                if (!log)
+                {
+                    throw new Exception();
+                }
+                var MaxOutCourses = db.Courses.Where(x => x.Capacity == 0).ToList();
+
+                return MaxOutCourses;
+            }
+            catch (Exception)
+            {
+                var noCourses = new List<Course>();
+                return noCourses;
+            }
+
+        }
+
+        public Dictionary<string, string> AllStudentsOfACourse(string userId, string courseName)
+        {
+            var students = new Dictionary<string, string>();
+
+            try
+            {
+                var log = UpdateLog(userId, DatabaseOperation.retrive, TableName.Course, "All-Students");
+                if (!log)
+                {
+                    throw new Exception();
+                }
+                Course course = db.Courses.FirstOrDefault(x => x.Name == courseName);
+                if (course == null)
+                {
+                    throw new Exception();
+                }
+
+                var applicationUsers = course.ApplicationUsers.ToList();
+                applicationUsers.ForEach(x =>
+                {
+                    if(x.ApplicationUser.UserName == null)
+                    {
+                        students.Add("Not updated", x.ApplicationUser.Email);
+                    }
+                    students.Add(x.ApplicationUser.UserName, x.ApplicationUser.Email);
+                });
+
+                return students;
+
+            }
+            catch (Exception)
+            {
+
+                return students;
+
+            }
+
+        }
 
 
     }
