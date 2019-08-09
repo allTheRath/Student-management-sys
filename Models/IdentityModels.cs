@@ -5,6 +5,7 @@ using System.Data.Entity;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using System.Web.Providers.Entities;
 using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Identity.EntityFramework;
 
@@ -84,7 +85,8 @@ namespace Student_management_.Models
         add,
         delete,
         assign,
-        edit
+        edit,
+        retrive
     }
 
     public class RoleAuthManagement
@@ -165,39 +167,172 @@ namespace Student_management_.Models
     {
         private protected ApplicationDbContext db = new ApplicationDbContext();
 
+        private protected bool UpdateLog(string userID, DatabaseOperation operation, TableName tableName, string ChangesMadeToUser)
+        {
+            bool result = false;
+            try
+            {
+
+                Log log = new Log();
+                log.UserId = userID;
+                log.Event = operation;
+                log.ChangesMadeToUserId = ChangesMadeToUser;
+                log.ChangeToTable = tableName;
+                var length = db.Logs.Count();
+                db.Logs.Add(log);
+                db.SaveChanges();
+                if (length + 1 != db.Logs.Count())
+                {
+                    throw new Exception();
+                }
+                result = true;
+                return result;
+            }
+            catch (Exception)
+            {
+                return result;
+            }
+
+        }
+
         // methods for Course
-        public ICollection<ApplicationUser> InstructorCourses()
-        {
-            var result = db.Users.Where(x => x.Type == PersonType.Teacher).ToList();
-
-            return result;
-        }
-
-        public ICollection<Course> AllCourses()
-        {
-            var result = db.Courses.ToList();
-            return result;
-        }
-
-        public Course RegisterForCourse(string courseName)
-        {
-            var result = db.Courses.FirstOrDefault(x => x.Name == courseName);
-            return result;
-        }
-
-        public ICollection<Course> StudentCourses(string userId)
-        {
-            var result = db.ApplicationUserCourses.Where(x => x.ApplicationUserId == userId).Select(x => x.Course).ToList();
-
-            return result;
-        }
-
-
-        public bool AddCourse(Course course)
+        public ICollection<Course> InstructorCourses(string userId, string instructorId)
         {
             try
             {
+                var log = UpdateLog(userId, DatabaseOperation.retrive, TableName.Teacher, instructorId);
+                if (!log)
+                {
+                    throw new Exception();
+                }
+                var result = db.Users.FirstOrDefault(x => x.Id == instructorId).Courses.Select(x => x.CourseId).ToList();
+                if (result == null || result.Count == 0)
+                {
+                    throw new Exception();
+                }
+
+                return db.Courses.Where(x => result.Contains(x.Id)).ToList();
+            }
+            catch (Exception)
+            {
+                var result = new List<Course>();
+                return result;
+            }
+
+        }
+
+        public ICollection<Course> AllCourses(string userId)
+        {
+
+            try
+            {
+                var log = UpdateLog(userId, DatabaseOperation.retrive, TableName.Course, "All");
+
+                if (!log)
+                {
+                    throw new Exception();
+                }
+
+                var result = db.Courses.ToList();
+                if (result == null || result.Count == 0)
+                {
+                    throw new Exception();
+                }
+                return result;
+            }
+            catch (Exception)
+            {
+                var result = new List<Course>();
+                return result;
+            }
+
+        }
+
+        public bool RegisterForCourse(string userId, string courseName, string studentId)
+        {
+
+            try
+            {
+                var log = UpdateLog(userId, DatabaseOperation.add, TableName.Course, courseName);
+
+                if (!log)
+                {
+                    throw new Exception();
+                }
+
+                var student = db.Users.Find(studentId);
+                var result = db.Courses.FirstOrDefault(x => x.Name == courseName);
+                if (result == null || student == null)
+                {
+                    throw new Exception();
+                }
+                result.Capacity--;
+                ApplicationUserCourse application = new ApplicationUserCourse();
+                application.CourseId = result.Id;
+                application.Course = result;
+                application.ApplicationUserId = student.Id;
+                application.ApplicationUser = student;
+                application.DateJoined = DateTime.Now;
+                db.ApplicationUserCourses.Add(application);
+                db.SaveChanges();
+                return true;
+
+            }
+            catch (Exception)
+            {
+                return false;
+
+            }
+        }
+
+        public ICollection<Course> StudentCourses(string userId, string studentId)
+        {
+            try
+            {
+                var log = UpdateLog(userId, DatabaseOperation.retrive, TableName.Course, studentId);
+
+                if (!log)
+                {
+                    throw new Exception();
+                }
+
+
+                var result = db.ApplicationUserCourses.Where(x => x.ApplicationUserId == userId).Select(x => x.Course).ToList();
+                if (result == null || result.Count == 0)
+                {
+                    throw new Exception();
+                }
+                return result;
+            }
+            catch (Exception)
+            {
+                var result = new List<Course>();
+
+                return result;
+            }
+
+        }
+
+
+        public bool AddCourse(string userId, Course course)
+        {
+
+            try
+            {
+                var log = UpdateLog(userId, DatabaseOperation.add, TableName.Course, course.Name);
+
+                if (!log)
+                {
+                    throw new Exception();
+                }
+
+                var length = db.Courses.Count();
                 db.Courses.Add(course);
+                db.SaveChanges();
+                if (length + 1 != db.Courses.Count())
+                {
+                    throw new Exception();
+                }
                 return true;
             }
             catch (Exception)
@@ -207,10 +342,28 @@ namespace Student_management_.Models
 
         }
 
-        public bool UpdateCourse()
+        public bool UpdateCourse(string userId, Course course)
         {
+
             try
             {
+                var log = UpdateLog(userId, DatabaseOperation.edit, TableName.Course, course.Name);
+
+                if (!log)
+                {
+                    throw new Exception();
+                }
+
+                Course dbCourse = db.Courses.FirstOrDefault(x => x.Name == course.Name);
+                if (dbCourse == null)
+                {
+                    throw new Exception();
+                }
+                dbCourse.Capacity = course.Capacity;
+                dbCourse.Credits = course.Credits;
+                dbCourse.EndDate = course.EndDate;
+                dbCourse.StartDate = course.StartDate;
+                db.SaveChanges();
                 return true;
             }
             catch (Exception)
@@ -219,15 +372,81 @@ namespace Student_management_.Models
             }
         }
 
-        //public ActionResult DeleteCourse()
-        //{
-        //    return View();
-        //}
+        public bool DeleteCourse(string userId, string courseName)
+        {
+            bool result = false;
 
-        //public ActionResult AddStudentToACourse()
-        //{
-        //    return View();
-        //}
+            try
+            {
+                var log = UpdateLog(userId, DatabaseOperation.delete, TableName.Course, courseName);
+
+                if (!log)
+                {
+                    throw new Exception();
+                }
+
+                Course course = db.Courses.FirstOrDefault(x => x.Name == courseName);
+                var length = db.Courses.Count();
+                db.Courses.Remove(course);
+                db.SaveChanges();
+                if (length + 1 != db.Courses.Count())
+                {
+                    throw new Exception();
+                }
+                result = true;
+                return result;
+
+            }
+            catch (Exception)
+            {
+                return result;
+            }
+
+        }
+
+        public bool AddStudentToACourse(string userId, string studentId, string courseName)
+        {
+            bool result = false;
+            try
+            {
+                var log = UpdateLog(userId, DatabaseOperation.add, TableName.Course, courseName);
+
+                if (!log)
+                {
+                    throw new Exception();
+                }
+
+                var student = db.Users.Find(studentId);
+                var course = db.Courses.FirstOrDefault(x => x.Name == courseName);
+                if(student == null || course == null)
+                {
+                    throw new Exception();
+                }
+
+                var length = db.ApplicationUserCourses.Count();
+
+                ApplicationUserCourse applicationUserCourse = new ApplicationUserCourse();
+                applicationUserCourse.ApplicationUserId = student.Id;
+                applicationUserCourse.CourseId = course.Id;
+                applicationUserCourse.Course = course;
+                applicationUserCourse.ApplicationUser = student;
+                applicationUserCourse.DateJoined = DateTime.Now;
+                course.ApplicationUsers.Add(applicationUserCourse);
+                db.SaveChanges();
+
+                if(length + 1 == db.ApplicationUserCourses.Count())
+                {
+                    result = true;
+                }
+                return result;
+            }
+            catch (Exception)
+            {
+                return result;
+            }
+
+
+        }
 
         ////public ActionResult AddStudentsTOCourse()
         ////{
