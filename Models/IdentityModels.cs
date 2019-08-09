@@ -84,6 +84,80 @@ namespace Student_management_.Models
         edit
     }
 
+    public class RoleAuthManagement
+    {
+        private protected UserManager<IdentityUser> UserManager { get; set; }
+        private protected RoleManager<IdentityRole> RoleManager { get; set; }
+
+        public RoleAuthManagement()
+        {
+            UserManager = new UserManager<IdentityUser>(new UserStore<IdentityUser>());
+            RoleManager = new RoleManager<IdentityRole>(new RoleStore<IdentityRole>());
+        }
+
+        public bool IsUserInRole(string userId, string roleName)
+        {
+            bool result = false;
+            result = UserManager.IsInRole(userId, roleName);
+            return result;
+        }
+
+        public ICollection<string> GetAllUserRoles(string userId)
+        {
+            return UserManager.GetRoles(userId);
+        }
+
+        public ICollection<string> AllUsersOfRole(string roleName)
+        {
+            var users = RoleManager.FindByName(roleName).Users;
+            var userIds = new List<string>();
+            foreach (var u in users)
+            {
+                userIds.Add(u.UserId);
+            }
+
+            return userIds;
+        }
+
+        public bool AddUserToRole(string userId, string roleName)
+        {
+            var result = false;
+            if(RoleManager.RoleExists(roleName))
+            {
+               result = UserManager.AddToRole(userId, roleName).Succeeded;
+            }
+            return result;
+        }
+
+        public bool IsRoleExist(string roleName)
+        {
+            var result = false;
+            result = RoleManager.RoleExists(roleName);
+            return result;
+        }
+
+        public bool CreateRole(string roleName)
+        {
+            var result = false;
+            result = RoleManager.Create(new IdentityRole(roleName)).Succeeded;
+            return result;
+        }
+
+        public bool DeleteRole(string roleName)
+        {
+            var result = false;
+            result = RoleManager.Delete(new IdentityRole(roleName)).Succeeded;
+            return result;
+        }
+
+        public bool DeleteRoleFromUser(string userId, string roleName)
+        {
+            var result = false;
+            result = UserManager.RemoveFromRole(userId, roleName).Succeeded;
+            return result;
+        }
+    }
+
     public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
         public DbSet<Course> Courses { get; set; }
