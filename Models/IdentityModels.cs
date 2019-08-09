@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data.Entity;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNet.Identity;
@@ -59,21 +60,23 @@ namespace Student_management_.Models
         //we need a class to represent waiting lists,
     }
 
-    public class ChangedUserIds
-    {
-        public int Id { get; set; }
-        public DateTime EventTime = DateTime.Now;
-        public DatabaseOperation Event { get; set; }
-        public int LogingId { get; set; }
-        public virtual Loging Loging { get; set; }
-    }
-
-    public class Loging
+    public class Log
     {
         //and another one to represent a Log, where we register all the events like adding, deleting, assigning...etc
         public int Id { get; set; }
-        public string UserId;
-        public ICollection<ChangedUserIds> Changes { get; set; }
+        public string UserId { get; set; }
+        public DateTime EventTime = DateTime.Now;
+        public DatabaseOperation Event { get; set; }
+        public string ChangesMadeToUserId { get; set; }
+        public TableName ChangeToTable { get; set; }
+    }
+
+    public enum TableName
+    {
+        Course,
+        Teacher,
+        Student,
+        Admin
     }
 
     public enum DatabaseOperation
@@ -122,9 +125,9 @@ namespace Student_management_.Models
         public bool AddUserToRole(string userId, string roleName)
         {
             var result = false;
-            if(RoleManager.RoleExists(roleName))
+            if (RoleManager.RoleExists(roleName))
             {
-               result = UserManager.AddToRole(userId, roleName).Succeeded;
+                result = UserManager.AddToRole(userId, roleName).Succeeded;
             }
             return result;
         }
@@ -158,11 +161,112 @@ namespace Student_management_.Models
         }
     }
 
+    public class DatabaseManupulation
+    {
+        private protected ApplicationDbContext db = new ApplicationDbContext();
+
+        // methods for Course
+        public ICollection<ApplicationUser> InstructorCourses()
+        {
+            var result = db.Users.Where(x => x.Type == PersonType.Teacher).ToList();
+
+            return result;
+        }
+
+        public ICollection<Course> AllCourses()
+        {
+            var result = db.Courses.ToList();
+            return result;
+        }
+
+        public Course RegisterForCourse(string courseName)
+        {
+            var result = db.Courses.FirstOrDefault(x => x.Name == courseName);
+            return result;
+        }
+
+        public ICollection<Course> StudentCourses(string userId)
+        {
+            var result = db.ApplicationUserCourses.Where(x => x.ApplicationUserId == userId).Select(x => x.Course).ToList();
+
+            return result;
+        }
+
+
+        public bool AddCourse(Course course)
+        {
+            try
+            {
+                db.Courses.Add(course);
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+        }
+
+        public bool UpdateCourse()
+        {
+            try
+            {
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        //public ActionResult DeleteCourse()
+        //{
+        //    return View();
+        //}
+
+        //public ActionResult AddStudentToACourse()
+        //{
+        //    return View();
+        //}
+
+        ////public ActionResult AddStudentsTOCourse()
+        ////{
+        ////    return View();
+        ////}
+
+        //public ActionResult AddInstructorToCourse()
+        //{
+        //    return View();
+        //}
+
+        //public ActionResult RemoveStudentFromCourse()
+        //{
+        //    return View();
+        //}
+
+        //public ActionResult RemoveInstructorFromCourse()
+        //{
+        //    return View();
+        //}
+
+        //public ActionResult MaxCapaCityCourses()
+        //{
+        //    return View();
+        //}
+
+        //public ActionResult AllStudentsOfACourse()
+        //{
+
+        //    return View();
+        //}
+
+
+    }
+
     public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
         public DbSet<Course> Courses { get; set; }
-        public DbSet<Loging> logings { get; set; }
-        public DbSet<ChangedUserIds> ChangedUserIds { get; set; }
+        public DbSet<Log> Logs { get; set; }
         public DbSet<ApplicationUserCourse> ApplicationUserCourses { get; set; }
         public ApplicationDbContext()
             : base("DefaultConnection", throwIfV1Schema: false)

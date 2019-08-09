@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Student_management_.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
@@ -8,6 +9,8 @@ namespace Student_management_.Controllers
 {
     public class HomeController : Controller
     {
+        private protected RoleAuthManagement roleAuthManagement = new RoleAuthManagement();
+
         public ActionResult Index()
         {
             return View();

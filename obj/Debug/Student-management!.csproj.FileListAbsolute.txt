@@ -105,3 +105,4 @@ C:\Users\jay\source\repos\Student-management!\obj\Debug\Student-management!.dll
 C:\Users\jay\source\repos\Student-management!\obj\Debug\Student-management!.pdb
 C:\Users\jay\source\repos\Student-management!\obj\Debug\Student_management_.Migrations.initial.resources
 C:\Users\jay\source\repos\Student-management!\obj\Debug\Student-management!.csproj.GenerateResource.cache
+C:\Users\jay\source\repos\Student-management!\obj\Debug\Student_management_.Migrations.initial2.resources
